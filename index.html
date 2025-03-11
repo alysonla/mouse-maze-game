@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mouse Maze Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .game-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .maze-container {
+            display: inline-block;
+            border: 2px solid #333;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .maze-row {
+            display: flex;
+        }
+        
+        .maze-cell {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            font-size: 20px;
+        }
+        
+        .wall {
+            background-color: #333;
+        }
+        
+        .path {
+            background-color: white;
+        }
+        
+        .player {
+            font-size: 22px;
+        }
+        
+        .cheese {
+            font-size: 22px;
+        }
+        
+        .cat {
+            font-size: 22px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 5px;
+            width: 150px;
+        }
+        
+        .control-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        
+        .control-btn:hover {
+            background-color: #0b7dda;
+        }
+        
+        .control-center {
+            grid-column: 2;
+            grid-row: 2;
+            background-color: #f5f5f5;
+            cursor: default;
+        }
+        
+        .control-up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+        
+        .control-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+        
+        .control-down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+        
+        .control-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        .game-over-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            display: none;
+        }
+        
+        .game-over-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .game-over-content h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .game-over-content p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        .difficulty-selector {
+            margin-bottom: 20px;
+        }
+        
+        .difficulty-selector label {
+            margin-right: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mouse Maze Game</h1>
+    <div class="difficulty-selector">
+        <label>
+            <input type="radio" name="difficulty" value="easy" checked> Easy
+        </label>
+        <label>
+            <input type="radio" name="difficulty" value="medium"> Medium
+        </label>
+        <label>
+            <input type="radio" name="difficulty" value="hard"> Hard
+        </label>
+    </div>
+    <div class="game-container">
+        <div class="game-info">
+            <div>Level: <span id="level">1</span></div>
+            <div>Lives: <span id="lives">3</span></div>
+        </div>
+        <div class="maze-container" id="maze"></div>
+    </div>
+    <button id="new-game">New Game</button>
+    <div class="controls">
+        <button class="control-btn control-up" id="move-up">↑</button>
+        <button class="control-btn control-right" id="move-right">→</button>
+        <button class="control-btn control-down" id="move-down">↓</button>
+        <button class="control-btn control-left" id="move-left">←</button>
+        <div class="control-center"></div>
+    </div>
+    
+    <div class="game-over-overlay" id="game-over-overlay">
+        <div class="game-over-content">
+            <h2 id="game-over-title">Game Over!</h2>
+            <p id="game-over-message">You ran out of lives!</p>
+            <button id="play-again">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let maze = [];
+        let rows = 10;
+        let cols = 10;
+        let playerPosition = { row: 0, col: 0 };
+        let cheesePosition = { row: 0, col: 0 };
+        let cats = [];
+        let level = 1;
+        let lives = 3;
+        let gameOver = false;
+        let catMoveInterval;
+        let difficulty = "easy";
+
+        // DOM elements
+        const mazeElement = document.getElementById('maze');
+        const levelElement = document.getElementById('level');
+        const livesElement = document.getElementById('lives');
+        const newGameButton = document.getElementById('new-game');
+        const gameOverOverlay = document.getElementById('game-over-overlay');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const playAgainButton = document.getElementById('play-again');
+        const difficultyRadios = document.querySelectorAll('input[name="difficulty"]');
+
+        // Direction vectors (up, right, down, left)
+        const directions = [
+            { row: -1, col: 0 },
+            { row: 0, col: 1 },
+            { row: 1, col: 0 },
+            { row: 0, col: -1 }
+        ];
+
+        // Initialize game
+        function initGame() {
+            // Set difficulty
+            difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            
+            // Set maze size based on difficulty
+            if (difficulty === "easy") {
+                rows = 10;
+                cols = 10;
+            } else if (difficulty === "medium") {
+                rows = 15;
+                cols = 15;
+            } else if (difficulty === "hard") {
+                rows = 20;
+                cols = 20;
+            }
+            
+            level = 1;
+            lives = 3;
+            gameOver = false;
+            
+            updateUI();
+            generateMaze();
+            renderMaze();
+            
+            // Clear any existing interval (not needed anymore since cats move with player)
+            if (catMoveInterval) {
+                clearInterval(catMoveInterval);
+                catMoveInterval = null;
+            }
+            
+            // Add focus to the game container to ensure keyboard events are captured
+            document.getElementById('maze').focus();
+            
+            // Display keyboard controls message
+            const controlsMessage = document.createElement('div');
+            controlsMessage.innerHTML = '<p>Use arrow keys or WASD to move the mouse! 🐭</p>';
+            controlsMessage.style.textAlign = 'center';
+            controlsMessage.style.marginTop = '10px';
+            controlsMessage.style.fontWeight = 'bold';
+            controlsMessage.style.color = '#333';
+            
+            const gameContainer = document.querySelector('.game-container');
+            if (gameContainer.querySelector('p')) {
+                gameContainer.querySelector('p').remove();
+            }
+            gameContainer.appendChild(controlsMessage);
+        }
+
+        // Generate random maze using depth-first search algorithm
+        function generateMaze() {
+            // Initialize maze with walls
+            maze = [];
+            for (let i = 0; i < rows; i++) {
+                const row = [];
+                for (let j = 0; j < cols; j++) {
+                    row.push("wall");
+                }
+                maze.push(row);
+            }
+
+            // Carve paths using DFS
+            const stack = [];
+            const startRow = 1;
+            const startCol = 1;
+            maze[startRow][startCol] = "path";
+            stack.push({ row: startRow, col: startCol });
+
+            while (stack.length > 0) {
+                const current = stack[stack.length - 1];
+                const neighbors = getUnvisitedNeighbors(current.row, current.col);
+
+                if (neighbors.length === 0) {
+                    stack.pop();
+                } else {
+                    const randomIndex = Math.floor(Math.random() * neighbors.length);
+                    const next = neighbors[randomIndex];
+                    
+                    // Carve passage
+                    const middleRow = current.row + Math.floor((next.row - current.row) / 2);
+                    const middleCol = current.col + Math.floor((next.col - current.col) / 2);
+                    maze[middleRow][middleCol] = "path";
+                    maze[next.row][next.col] = "path";
+                    
+                    stack.push(next);
+                }
+            }
+
+            // Ensure outer walls remain intact
+            for (let i = 0; i < rows; i++) {
+                maze[i][0] = "wall";
+                maze[i][cols - 1] = "wall";
+            }
+            for (let j = 0; j < cols; j++) {
+                maze[0][j] = "wall";
+                maze[rows - 1][j] = "wall";
+            }
+
+            // Place player
+            playerPosition = findRandomEmptyCell();
+            
+            // Place cheese
+            do {
+                cheesePosition = findRandomEmptyCell();
+            } while (
+                cheesePosition.row === playerPosition.row && 
+                cheesePosition.col === playerPosition.col
+            );
+            
+            // Place cats
+            cats = [];
+            const numCats = difficulty === "easy" ? 2 : 
+                          difficulty === "medium" ? 3 : 5;
+            
+            for (let i = 0; i < numCats; i++) {
+                let catPos;
+                do {
+                    catPos = findRandomEmptyCell();
+                } while (
+                    (catPos.row === playerPosition.row && catPos.col === playerPosition.col) ||
+                    (catPos.row === cheesePosition.row && catPos.col === cheesePosition.col) ||
+                    isTooClose(catPos, playerPosition, 3)
+                );
+                cats.push(catPos);
+            }
+        }
+
+        // Check if position is too close to player (to prevent instant death)
+        function isTooClose(pos1, pos2, minDistance) {
+            const distance = Math.sqrt(
+                Math.pow(pos1.row - pos2.row, 2) + 
+                Math.pow(pos1.col - pos2.col, 2)
+            );
+            return distance < minDistance;
+        }
+
+        // Find unvisited neighbors for maze generation
+        function getUnvisitedNeighbors(row, col) {
+            const neighbors = [];
+            
+            for (const dir of directions) {
+                const newRow = row + dir.row * 2;
+                const newCol = col + dir.col * 2;
+                
+                if (
+                    newRow > 0 && newRow < rows - 1 &&
+                    newCol > 0 && newCol < cols - 1 &&
+                    maze[newRow][newCol] === "wall"
+                ) {
+                    neighbors.push({ row: newRow, col: newCol });
+                }
+            }
+            
+            return neighbors;
+        }
+
+        // Find a random empty cell
+        function findRandomEmptyCell() {
+            let row, col;
+            do {
+                row = Math.floor(Math.random() * (rows - 2)) + 1;
+                col = Math.floor(Math.random() * (cols - 2)) + 1;
+            } while (maze[row][col] !== "path");
+            
+            return { row, col };
+        }
+
+        // Render maze
+        function renderMaze() {
+            mazeElement.innerHTML = '';
+            
+            for (let i = 0; i < rows; i++) {
+                const rowElement = document.createElement('div');
+                rowElement.className = 'maze-row';
+                
+                for (let j = 0; j < cols; j++) {
+                    const cellElement = document.createElement('div');
+                    cellElement.className = `maze-cell ${maze[i][j]}`;
+                    
+                    // Add content to cell
+                    if (i === playerPosition.row && j === playerPosition.col) {
+                        cellElement.innerHTML = '🐭';
+                        cellElement.classList.add('player');
+                    } else if (i === cheesePosition.row && j === cheesePosition.col) {
+                        cellElement.innerHTML = '🧀';
+                        cellElement.classList.add('cheese');
+                    } else if (cats.some(cat => cat.row === i && cat.col === j)) {
+                        cellElement.innerHTML = '🐱';
+                        cellElement.classList.add('cat');
+                    }
+                    
+                    rowElement.appendChild(cellElement);
+                }
+                
+                mazeElement.appendChild(rowElement);
+            }
+        }
+
+        // Move player
+        function movePlayer(direction) {
+            if (gameOver) return;
+            
+            const newRow = playerPosition.row + directions[direction].row;
+            const newCol = playerPosition.col + directions[direction].col;
+            
+            // Check if move is valid
+            if (
+                newRow >= 0 && newRow < rows &&
+                newCol >= 0 && newCol < cols &&
+                maze[newRow][newCol] === "path"
+            ) {
+                playerPosition.row = newRow;
+                playerPosition.col = newCol;
+                
+                // Move cats after player moves
+                moveCats();
+                
+                // Check for collision with cats
+                if (cats.some(cat => cat.row === newRow && cat.col === newCol)) {
+                    handleCatCollision();
+                }
+                
+                // Check if player reached cheese
+                if (newRow === cheesePosition.row && newCol === cheesePosition.col) {
+                    nextLevel();
+                }
+                
+                renderMaze();
+            }
+        }
+
+        // Move cats
+        function moveCats() {
+            for (let i = 0; i < cats.length; i++) {
+                // Cats have a chance to move randomly or towards the player
+                const moveTowardsPlayer = Math.random() < 0.5;
+                
+                if (moveTowardsPlayer) {
+                    // Move towards player with simple path finding
+                    const possibleMoves = [];
+                    
+                    for (const dir of directions) {
+                        const newRow = cats[i].row + dir.row;
+                        const newCol = cats[i].col + dir.col;
+                        
+                        if (
+                            newRow >= 0 && newRow < rows &&
+                            newCol >= 0 && newCol < cols &&
+                            maze[newRow][newCol] === "path"
+                        ) {
+                            const distToPlayer = Math.abs(newRow - playerPosition.row) + Math.abs(newCol - playerPosition.col);
+                            possibleMoves.push({ row: newRow, col: newCol, dist: distToPlayer });
+                        }
+                    }
+                    
+                    if (possibleMoves.length > 0) {
+                        // Sort by distance
+                        possibleMoves.sort((a, b) => a.dist - b.dist);
+                        cats[i].row = possibleMoves[0].row;
+                        cats[i].col = possibleMoves[0].col;
+                    }
+                } else {
+                    // Random movement
+                    const validMoves = [];
+                    
+                    for (const dir of directions) {
+                        const newRow = cats[i].row + dir.row;
+                        const newCol = cats[i].col + dir.col;
+                        
+                        if (
+                            newRow >= 0 && newRow < rows &&
+                            newCol >= 0 && newCol < cols &&
+                            maze[newRow][newCol] === "path"
+                        ) {
+                            validMoves.push({ row: newRow, col: newCol });
+                        }
+                    }
+                    
+                    if (validMoves.length > 0) {
+                        const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                        cats[i].row = randomMove.row;
+                        cats[i].col = randomMove.col;
+                    }
+                }
+                
+                // Check if cat caught player
+                if (cats[i].row === playerPosition.row && cats[i].col === playerPosition.col) {
+                    handleCatCollision();
+                }
+            }
+        }
+
+        // Handle cat collision
+        function handleCatCollision() {
+            lives--;
+            updateUI();
+            
+            if (lives <= 0) {
+                endGame(false);
+            } else {
+                // Reset player position
+                do {
+                    playerPosition = findRandomEmptyCell();
+                } while (
+                    cats.some(cat => isTooClose(cat, playerPosition, 3))
+                );
+            }
+        }
+
+        // Go to next level
+        function nextLevel() {
+            level++;
+            updateUI();
+            generateMaze();
+            
+            // No need to adjust cat speed as they now move with player
+            
+            if (level >= 10) {
+                endGame(true);
+            }
+        }
+
+        // End game
+        function endGame(won) {
+            gameOver = true;
+            clearInterval(catMoveInterval);
+            
+            gameOverTitle.textContent = won ? "Congratulations!" : "Game Over!";
+            gameOverMessage.textContent = won 
+                ? `You completed all ${level} levels! You're a maze master!` 
+                : `You reached level ${level} before running out of lives.`;
+                
+            gameOverOverlay.style.display = "flex";
+        }
+
+        // Update UI elements
+        function updateUI() {
+            levelElement.textContent = level;
+            livesElement.textContent = lives;
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+            
+            switch (e.key) {
+                case 'ArrowUp': 
+                    e.preventDefault(); // Prevent page scrolling
+                    movePlayer(0); 
+                    break;
+                case 'ArrowRight': 
+                    e.preventDefault(); // Prevent page scrolling
+                    movePlayer(1); 
+                    break;
+                case 'ArrowDown': 
+                    e.preventDefault(); // Prevent page scrolling
+                    movePlayer(2); 
+                    break;
+                case 'ArrowLeft': 
+                    e.preventDefault(); // Prevent page scrolling
+                    movePlayer(3); 
+                    break;
+                // Add WASD controls as an alternative
+                case 'w':
+                case 'W':
+                    movePlayer(0);
+                    break;
+                case 'd':
+                case 'D':
+                    movePlayer(1);
+                    break;
+                case 's':
+                case 'S':
+                    movePlayer(2);
+                    break;
+                case 'a':
+                case 'A':
+                    movePlayer(3);
+                    break;
+            }
+        });
+
+        document.getElementById('move-up').addEventListener('click', () => movePlayer(0));
+        document.getElementById('move-right').addEventListener('click', () => movePlayer(1));
+        document.getElementById('move-down').addEventListener('click', () => movePlayer(2));
+        document.getElementById('move-left').addEventListener('click', () => movePlayer(3));
+        
+        newGameButton.addEventListener('click', initGame);
+        playAgainButton.addEventListener('click', () => {
+            gameOverOverlay.style.display = "none";
+            initGame();
+        });
+        
+        difficultyRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (!gameOver) {
+                    initGame();
+                }
+            });
+        });
+
+        // Start game
+        initGame();
+    </script>
+</body>
+</html>
